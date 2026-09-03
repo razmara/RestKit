@@ -61,12 +61,6 @@ static NSString *RKLogTruncateString(NSString *string)
        (long) maxMessageLength];
 }
 
-@interface NSCachedURLResponse (RKLeakFix)
-
-@property (NS_NONATOMIC_IOSONLY, readonly, copy) NSData *rkData;
-
-@end
-
 @interface RKObjectRequestOperationLogger : NSObject
 
 + (RKObjectRequestOperationLogger*)sharedLogger;
@@ -499,7 +493,7 @@ static NSString *RKStringDescribingURLResponseWithData(NSURLResponse *response, 
                     // in the use of this cachedResponse.
                     NSMutableDictionary *userInfo = cachedResponse.userInfo ? [cachedResponse.userInfo mutableCopy] : [NSMutableDictionary dictionary];
                     userInfo[RKResponseHasBeenMappedCacheUserInfoKey] = @YES;
-                    NSCachedURLResponse *newCachedResponse = [[NSCachedURLResponse alloc] initWithResponse:cachedResponse.response data:cachedResponse.rkData userInfo:userInfo storagePolicy:cachedResponse.storagePolicy];
+                    NSCachedURLResponse *newCachedResponse = [[NSCachedURLResponse alloc] initWithResponse:cachedResponse.response data:cachedResponse.data userInfo:userInfo storagePolicy:cachedResponse.storagePolicy];
                     [[NSURLCache sharedURLCache] storeCachedResponse:newCachedResponse forRequest:weakSelf.HTTPRequestOperation.request];
                 }
             }
@@ -573,33 +567,6 @@ static NSString *RKStringDescribingURLResponseWithData(NSURLResponse *response, 
 {
     [super cancel];
     [self.stateMachine cancel];
-}
-
-@end
-
-#pragma mark - Fix for leak in iOS 5/6 "- [NSCachedURLResponse data]" message
-
-@implementation NSCachedURLResponse (RKLeakFix)
-
-- (NSData *)rkData
-{
-    @synchronized(self) {
-        NSData *result;
-        CFIndex count;
-        
-        @autoreleasepool {
-            result = [self data];
-            count = CFGetRetainCount((__bridge CFTypeRef)result);
-        }
-        
-        if (CFGetRetainCount((__bridge CFTypeRef)result) == count) {
-#ifndef __clang_analyzer__
-            CFRelease((__bridge CFTypeRef)result); // Leak detected, manually release
-#endif
-        }
-        
-        return result;
-    }
 }
 
 @end
