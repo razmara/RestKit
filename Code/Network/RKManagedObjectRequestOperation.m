@@ -464,7 +464,13 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
     if (self) {
         self.savesToPersistentStore = YES;
         self.deletesOrphanedObjects = YES;
-        self.cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:requestOperation.request];
+        // `cachedResponse` is only consulted by `canSkipMapping`, which bails out for anything but GET/HEAD.
+        // Do not take ownership of an NSURLCache entry for other methods: the operation would otherwise pin a
+        // cache entry it never reads until its own dealloc, where releasing it can hit already-freed data.
+        NSString *method = requestOperation.request.HTTPMethod;
+        if ([method isEqualToString:@"GET"] || [method isEqualToString:@"HEAD"]) {
+            self.cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:requestOperation.request];
+        }
     }
     return self;
 }
